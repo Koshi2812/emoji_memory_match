@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Emoji Memory Match</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #f9f9f9, #dceefb);
+      color: #333;
+      text-align: center;
+      margin: 0; padding: 20px;
+      transition: background 0.4s, color 0.4s;
+    }
+    body.dark {
+      background: #1f1f1f;
+      color: white;
+    }
+    .controls {
+      margin-bottom: 20px;
+    }
+    select, button {
+      padding: 10px; margin: 5px;
+      border: none; border-radius: 5px; font-size: 16px;
+    }
+    .grid {
+      display: grid;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .card {
+      width: 60px; height: 60px;
+      background: white;
+      border-radius: 10px;
+      font-size: 2rem;
+      cursor: pointer;
+      transition: transform 0.3s;
+    }
+    .dark .card { background: #444; color: white; }
+    .flipped { background: #f39c12; color: white; transform: rotateY(180deg); }
+    #confetti {
+      position: fixed;
+      pointer-events: none;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 999;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🎮 Emoji Memory Match</h1>
+
+  <div class="controls">
+    <label>Difficulty:</label>
+    <select id="difficulty">
+      <option value="4">Easy (4x4)</option>
+      <option value="6">Medium (6x6)</option>
+      <option value="8">Hard (8x8)</option>
+    </select>
+    <button onclick="startGame()">Start</button>
+    <button onclick="toggleTheme()">Toggle 🌗</button>
+    <p>Moves: <span id="moves">0</span> | Time: <span id="timer">0</span>s</p>
+    <p>Best Score: <span id="best">--</span></p>
+  </div>
+
+  <div id="board" class="grid"></div>
+  <canvas id="confetti"></canvas>
+
+  <script>
+    const emojis = ['🍕','🎈','🎮','🚀','🎵','💡','⚽','🍩','🐱','🧠','🌈','🍓','🎁','🪐','☕','🦄'];
+    let size = 4, moves = 0, flipped = [], timer, time = 0, best = localStorage.getItem('emoji-best') || '--';
+
+    function toggleTheme() {
+      document.body.classList.toggle('dark');
+    }
+
+    function startGame() {
+      size = parseInt(document.getElementById('difficulty').value);
+      const total = size * size / 2;
+      let icons = [...emojis].sort(() => 0.5 - Math.random()).slice(0, total);
+      let pair = [...icons, ...icons].sort(() => 0.5 - Math.random());
+
+      const board = document.getElementById('board');
+      board.style.gridTemplateColumns = `repeat(${size}, 60px)`;
+      board.innerHTML = '';
+      moves = 0; flipped = []; time = 0;
+      document.getElementById('moves').textContent = moves;
+      document.getElementById('timer').textContent = time;
+      document.getElementById('best').textContent = best;
+
+      clearInterval(timer);
+      timer = setInterval(() => {
+        time++;
+        document.getElementById('timer').textContent = time;
+      }, 1000);
+
+      pair.forEach(emoji => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.dataset.emoji = emoji;
+        card.onclick = () => handleFlip(card);
+        board.appendChild(card);
+      });
+    }
+
+    function handleFlip(card) {
+      if (flipped.length >= 2 || card.classList.contains('flipped')) return;
+      card.classList.add('flipped');
+      card.textContent = card.dataset.emoji;
+      flipped.push(card);
+
+      if (flipped.length === 2) {
+        moves++;
+        document.getElementById('moves').textContent = moves;
+        const [a, b] = flipped;
+        if (a.dataset.emoji === b.dataset.emoji) {
+          flipped = [];
+          checkWin();
+        } else {
+          setTimeout(() => {
+            flipped.forEach(c => {
+              c.classList.remove('flipped');
+              c.textContent = '';
+            });
+            flipped = [];
+          }, 800);
+        }
+      }
+    }
+
+    function checkWin() {
+      const all = document.querySelectorAll('.card').length;
+      const matched = document.querySelectorAll('.flipped').length;
+      if (matched === all) {
+        clearInterval(timer);
+        triggerConfetti();
+        if (best === '--' || moves < best) {
+          localStorage.setItem('emoji-best', moves);
+          document.getElementById('best').textContent = moves;
+        }
+        setTimeout(() => alert(`🎉 You won in ${moves} moves and ${time} seconds!`), 300);
+      }
+    }
+
+    // 🎊 Confetti (emoji style)
+    function triggerConfetti() {
+      const canvas = document.getElementById('confetti');
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const particles = Array.from({ length: 30 }, () => ({
+        x: Math.random() * canvas.width,
+        y: -20,
+        emoji: emojis[Math.floor(Math.random() * emojis.length)],
+        speed: Math.random() * 3 + 2,
+        size: Math.random() * 20 + 24
+      }));
+
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => {
+          ctx.font = `${p.size}px serif`;
+          ctx.fillText(p.emoji, p.x, p.y);
+          p.y += p.speed;
+        });
+        requestAnimationFrame(animate);
+      }
+      animate();
+    }
+  </script>
+</body>
+</html>
